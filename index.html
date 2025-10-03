@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Busca de Produtos</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f4f4f9; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 2em; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        #login-section, #search-section { border: 1px solid #ccc; padding: 1.5em; margin-bottom: 1.5em; border-radius: 5px; }
+        input[type="text"], input[type="email"], input[type="password"] { width: calc(100% - 20px); padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 15px; border: none; background-color: #007bff; color: white; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #0056b3; }
+        #results { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.5em; margin-top: 1em; }
+        .product { border: 1px solid #eee; text-align: center; cursor: pointer; padding: 0.5em; border-radius: 5px; transition: box-shadow 0.2s; }
+        .product:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .product img { max-width: 100%; height: 120px; aspect-ratio: 1 / 1; object-fit: contain; }
+        .product p { margin: 0.5em 0; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .product small { color: #666; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>API de Busca de Produtos</h1>
+
+        <div id="login-section">
+            <h2>Login</h2>
+            <input type="email" id="email" placeholder="Email de teste" value="teste@email.com">
+            <input type="password" id="password" placeholder="Senha" value="senha123">
+            <button id="login-btn">Entrar</button>
+            <p id="auth-status" style="color: red;"></p>
+        </div>
+
+        <div id="search-section" class="hidden">
+            <h2>Buscar Produto</h2>
+            <input type="text" id="search-query" placeholder="Digite o nome do produto...">
+            <button id="search-btn">Buscar</button>
+        </div>
+
+        <hr>
+        <h2>Resultados</h2>
+        <div id="results"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script>
+        // --- 1. CONFIGURAÇÃO DO FIREBASE ---
+        // COLE AQUI A CONFIGURAÇÃO COMPLETA DO SEU FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyC9RLacBaDHc_KroENXrwj3q3XDwMXLf2I",
+            authDomain: "teste-8b7f1.firebaseapp.com",
+            databaseURL: "https://teste-8b7f1.firebaseio.com",
+            projectId: "teste-8b7f1",
+            storageBucket: "teste-8b7f1.firebasestorage.app",
+            messagingSenderId: "303248000443",
+            appId: "1:303248000443:web:78b2e7b73ff3a3a28ab09e",
+            measurementId: "G-YGECPFLQ9M"
+        };
+
+        // --- 2. INICIALIZAÇÃO E VARIÁVEIS GLOBAIS ---
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        let idToken = null;
+        const API_BASE_URL = "http://127.0.0.1:8000"; // URL base da nossa API Django
+
+        // --- 3. REFERÊNCIAS AOS ELEMENTOS HTML ---
+        const loginSection = document.getElementById('login-section');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const loginBtn = document.getElementById('login-btn');
+        const authStatus = document.getElementById('auth-status');
+        const searchSection = document.getElementById('search-section');
+        const searchInput = document.getElementById('search-query');
+        const searchBtn = document.getElementById('search-btn');
+        const resultsDiv = document.getElementById('results');
+
+        // --- 4. LÓGICA DE AUTENTICAÇÃO ---
+        loginBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            authStatus.textContent = "Entrando...";
+
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                idToken = await userCredential.user.getIdToken(true);
+                loginSection.classList.add('hidden');
+                searchSection.classList.remove('hidden');
+                authStatus.textContent = "";
+            } catch (error) {
+                console.error("Erro detalhado no login:", error);
+                authStatus.textContent = `Erro no login: ${error.code}`;
+            }
+        });
+
+        // --- 5. LÓGICA DE BUSCA DE PRODUTOS ---
+        searchBtn.addEventListener('click', async () => {
+            const query = searchInput.value;
+            if (!query) return;
+            resultsDiv.innerHTML = '<p>Buscando...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/v1/products/standardize/?q=${encodeURIComponent(query)}`, {
+                    headers: { 'Authorization': `Bearer ${idToken}` }
+                });
+                if (!response.ok) throw new Error((await response.json()).error || 'Erro de rede');
+                const products = await response.json();
+                renderProducts(products);
+            } catch (error) {
+                console.error("Erro na busca:", error);
+                resultsDiv.innerHTML = `<p style="color: red;">${error.message}</p>`;
+            }
+        });
+
+        // --- 6. LÓGICA DE RENDERIZAÇÃO ---
+        function renderProducts(products) {
+            resultsDiv.innerHTML = '';
+            const productsArray = Array.isArray(products) ? products : [products];
+            productsArray.forEach(product => {
+                const productDiv = document.createElement('div');
+                productDiv.className = 'product';
+                productDiv.innerHTML = `
+                    <img src="${product.image_url}" alt="${product.name}" onerror="this.onerror=null;this.src='https://placehold.co/150x150/EEE/31343C?text=Imagem\\nIndisponível';">
+                    <p title="${product.name || 'Nome indisponível'}">${product.name || 'Nome indisponível'}</p>
+                    <small>Score: ${product.score || 0}</small>
+                `;
+                productDiv.addEventListener('click', () => incrementScore(product));
+                resultsDiv.appendChild(productDiv);
+            });
+        }
+        
+        // --- 7. LÓGICA DE VOTAÇÃO ---
+        async function incrementScore(productObject) {
+            const productId = productObject.product_id;
+            if (!productId) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/v1/products/${productId}/increment_score/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(productObject)
+                });
+                if (!response.ok) throw new Error('Erro ao registrar voto.');
+                alert('Obrigado! Sua preferência foi registrada.');
+            } catch (error) {
+                console.error("Erro ao incrementar score:", error);
+                alert(error.message);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+
+
+# Arquivos de Ambiente Virtual e Cache
+ # Ambiente virtual e segredos
+.venv/
+.env
+firebase-credentials.json
+
+ # Banco de dados local (SQLite)
+db.sqlite3
+
+ # Cache Python
+__pycache__/
+*.pyc
+
+ # VSCode
+.vscode/
+
+
+
+# Banco de dados local (se usar)
+db.sqlite3
