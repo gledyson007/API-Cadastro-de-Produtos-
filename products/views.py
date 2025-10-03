@@ -10,9 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from config.firebase_config import db
 from firebase_admin import firestore
 
-# ==============================================================================
-# --- FUNÇÕES AUXILIARES ---
-# ==============================================================================
+
 
 def normalize_text(text):
     if not text: return ""
@@ -106,9 +104,6 @@ def process_single_term(raw_term):
     except Exception as e:
         return {"error": f"Não foi possível processar o termo: {raw_term}", "details": str(e)}
 
-# ==============================================================================
-# --- CLASSES DE API (VIEWS) ---
-# ==============================================================================
 
 class ProductParseView(APIView):
     authentication_classes = [FirebaseAuthentication]
